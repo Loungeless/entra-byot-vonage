@@ -8,8 +8,8 @@ Fact-only Markdown guide for Entra ID BYOT with Microsoft's Azure Function sampl
 
 ## Companion Articles (Loungeless)
 
-- **Part 1 (Overview):** [Microsoft Is Hanging Up on Your MFA Texts]([PART 1 URL])
-- **Part 2 (Build Guide):** [Building Entra ID BYOT with Vonage Verify v2]([PART 2 URL])
+- **Part 1 (Overview):** *Microsoft Is Hanging Up on Your MFA Texts* — publishing shortly on Substack
+- **Part 2 (Build Guide):** *Building Entra ID BYOT with Vonage Verify v2* — publishing next week on Substack
 
 ## Using with an AI Assistant
 
