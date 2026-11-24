@@ -1,7 +1,7 @@
 ---
 title: "Entra ID SMS/voice MFA retires: BYOT with Vonage Verify v2 (AI guide)"
-author: Harrison Greanias
-updated: 2026-11-20
+author: Harrison Greanias (Loungeless)
+updated: 2026-11-23
 companion_articles:
   part_1: "Microsoft Is Hanging Up on Your MFA Texts" — https://loungeless.substack.com (publishing shortly)
   part_2: "Building Entra ID BYOT with Vonage Verify v2" — https://loungeless.substack.com (publishing shortly)
@@ -14,8 +14,8 @@ checked_against: Microsoft Learn, Azure-Samples/ExternalPhoneProvider-AzureFunct
 
 - Fact-only companion to the published articles. Use this to plan or build Entra ID phone OTP delivery after Microsoft retires its own SMS/voice.
 - **Core invariant:** in BYOT, **Entra generates and validates the OTP**. The Azure Function adapter only delivers Entra's code and never learns synchronously whether sign-in succeeded.
-- Facts as of 2026-11-20. Confirm critical limits and APIs against the sources at the bottom.
-- Items marked **CONFIRM WITH VONAGE** are not settled by public docs.
+- Facts as of 2026-11-23. Confirm critical limits and APIs against the sources at the bottom.
+- Where public docs leave a detail open, this guide states its recommendation and labels it as such.
 - First determine the user's setup (see "Scope") — workforce tenants and consumer apps have different rules.
 
 ## Scope: which setup does the user have?
@@ -102,7 +102,7 @@ Function responses to Entra:
 2. **Provider account:** enable only needed channels and countries. Register senders (US: 10DLC, verified toll-free, or short code; no alphanumeric senders in US/Canada), an RBM agent for RCS, a WhatsApp Business number. Enable fraud controls and spend caps.
 3. **Fork** `Azure-Samples/ExternalPhoneProvider-AzureFunction-Sample` (JavaScript, C#, or Python). Add `setup/providers/<id>.json` (endpoints, `timeoutMilliseconds`, `authentication.mode`) and register it in `setup/providers/catalog.json`. Provider timeout defaults to 1,500 ms, capped at 2,500 ms.
 4. **Adapter** (`createRequest`, `interpretResponse`): deliver Entra's OTP exactly (keep leading zeros); accept only documented success statuses; treat unknowns as failures; never log phone numbers, OTPs, nonces, or tokens.
-5. **Secrets:** `"mode": "apiKey"`. Setup creates disabled Key Vault placeholders; add real values as new secret versions.
+5. **Secrets:** `"mode": "apiKey"` (for Vonage, the two secrets hold the Vonage Application ID and private key; see "Auth" below). Setup creates disabled Key Vault placeholders; add real values as new secret versions.
 6. **Deploy:** run `Setup-Epp.ps1` from Cloud Shell (PowerShell) with the fork, a pinned commit, provider ID, and package URL; setup handles the Global or EU route for the tenant. Deploy in the region nearest the Entra tenant. Suggested: Flex Consumption with one always-ready instance (cold starts eat into the 2.5 s provider timeout).
 7. **Back up policies:** `GET https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy/authenticationMethodConfigurations/Sms` and `/Voice`. Do not change `includeTargets` (shared with live users).
 8. **Evaluate (SMS):**
@@ -115,15 +115,15 @@ PATCH https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy/auth
     "appId": "<endpoint app client ID>", "isEvaluationModeEnabled": true, "migrationPercentage": 10 } }
 ```
 
-   **Repeat for voice:** same call to `/Voice` with `"@odata.type": "#microsoft.graph.voiceAuthenticationMethodConfiguration"`. Without it, voice users have no delivery after the retirement date. Changes take ~1 hour. Audit log (Service: Azure MFA): check `DeliveryMethod` = `TelephonyProviderEvaluation` (CYOT docs use `CyotEvaluation` as the `DeliveryMethod` field value, not an Activity Type). Microsoft's BYOT guide uses `/beta` in examples; the property is documented in v1.0.
-9. **Roll out:** set `isEvaluationModeEnabled: false`, raise `migrationPercentage` stepwise to 100. At each step confirm `DeliveryMethod` = `TelephonyProvider` (and Activity Type `CyotDeliverySucceeded`, where surfaced) in Entra and delivery in the provider portal.
+   **Repeat for voice:** same call to `/Voice` with `"@odata.type": "#microsoft.graph.voiceAuthenticationMethodConfiguration"`. Without it, voice users have no delivery after the retirement date. Changes take ~1 hour. Audit log (Service: Azure MFA): look for `DeliveryMethod: CyotEvaluation` (the value Microsoft's CYOT docs show); if the tenant shows a different label, use what it shows. Microsoft's BYOT guide uses `/beta` in examples; the property is documented in v1.0.
+9. **Roll out:** set `isEvaluationModeEnabled: false`, raise `migrationPercentage` stepwise to 100. At each step confirm successful provider deliveries in Entra audit logs (CYOT docs show `CyotDeliverySucceeded`) and delivery in the provider portal.
 10. **Operate:** rotate app credentials and the JWE certificate; at most one failover; no resend after timeout; never retry a blocked send through another channel or provider. Support split: Microsoft owns Entra and the handoff, provider owns delivery, customer owns the Function.
 
 ## Vonage adapter: Verify v2
 
 ```http
 POST https://api.nexmo.com/v2/verify
-Authorization: Basic base64(VONAGE_API_KEY:VONAGE_API_SECRET)
+Authorization: Bearer <JWT signed with the Vonage application's private key>
 Content-Type: application/json
 
 {
@@ -143,7 +143,9 @@ Content-Type: application/json
 - Success: `202 {"request_id": "…"}`.
 - Workflow: ordered by the adapter (Verify allows up to 3 steps; this guide uses 2); Verify falls back in that order.
 - Entra voice request (`channel: 2`): send a single `{ "channel": "voice", "to": "…" }` step (TTS call). Do not fall back to SMS (number may be a landline).
-- Auth: Basic fits the sample's `apiKey` mode — `identityKeyVaultSecretName` = API key, `keyVaultSecretName` = API secret. (Verify v2 also accepts JWT.)
+- Auth: use JWT, not Basic. Verify v2 accepts both, but Basic doesn't support event/summary callbacks; the RCS Default Agent guide lists a Vonage application (Application ID + private key, JWT auth) as a prerequisite.
+- JWT in the sample (recommendation): keep `"mode": "apiKey"`; the credential service hands `createRequest` an `identity` and a `secret`. Set `identityKeyVaultSecretName` = Vonage Application ID, `keyVaultSecretName` = private key (PEM). In `createRequest`, sign a short-lived RS256 JWT with claims `application_id`, `iat`, `exp`, `jti` using the runtime's standard crypto library, and send `Authorization: Bearer <JWT>`. Upload the PEM with `az keyvault secret set --file` (Microsoft's documented method for multi-line secrets). Reuse the same application and key for `/check` and Identity Insights.
+- Custom code: `code` is request-level (not per workflow step), so the same code is used on every step; it has no effect on `silent_auth`. Custom codes and the `fraud_check` override both depend on Vonage account setup; ask support to enable both before live testing.
 - Channel order rationale: RCS shows a carrier-vetted, verified business sender instead of a spoofable phone number (the customer's own name and logo once their own agent launches; the Default Agent sends as "Vonage Verify"). WhatsApp also uses a verified business sender and can replace RCS as step one. SMS is always step two.
 - If a device or network can't take RCS, Verify falls back to the next step automatically.
 - RCS: `from` = RCS agent ID. Branded agent requires Vonage RCS Agent Builder, brand verification, and per-carrier, per-country launch approval (US adds Aegis vetting). Until approved, omit `from` to use the Vonage Verify RCS Default Agent (sender "Vonage Verify", brand in message body).
@@ -171,7 +173,9 @@ Status mapping:
 | Other 4xx (401, 402, 403, 422) | `400` |
 | `5xx` | `502` |
 | Timeout | `504` |
-| Fraud block or failed SIM swap check | `422 provider_blocked` |
+| Failed SIM swap check (adapter decision, before sending) | `422 provider_blocked` |
+
+Blocks after `202`: Vonage's anti-fraud guide shows network blocks arriving as a summary callback with status `blocked` and a `reason` (rare with `fraud_check: false`). Entra already has its `200`, so: set a status URL on the Vonage application (JWT required), log and alert on `blocked`, never resend.
 
 409 handling: store `request_id` keyed by a hash of the phone number. Cancellation (`DELETE https://api.nexmo.com/v2/verify/{request_id}`) only works from 30 s after start until the second channel event; outside that window return `429`.
 
@@ -182,21 +186,19 @@ Entra validates the code, so Verify receives no `/check` call unless the adapter
 - `"fraud_check": false` on every request. This turns off Verify's network blocking for SMS and voice. Vonage's docs describe `false` as a per-request override, so raise it on the support ticket below. Fraud Defender still applies (country allow-lists, throttling, alerts per the author); configure these before go-live. Voice allow-lists should be tighter than SMS (IRSF toll fraud).
 - One code per sign-in: each Entra request = one Verify request with a two-step workflow, RCS then SMS, per Vonage's docs. The SMS step exists for phones that can't take RCS (Verify falls back automatically; speed undocumented). Set `channel_timeout: 900` (maximum). If the success `/check` (below) arrives within 15 minutes, the SMS step never sends; otherwise it sends at 15 minutes. Do not add steps: sign-in feedback takes minutes, so extra codes don't help users.
 - Before leaving evaluation mode, open a "Using Verify" ticket in the Vonage API Support Help Center (https://api.support.vonage.com) and involve the account manager:
-  1. State that the account sends custom-code BYOT traffic with `fraud_check` off.
-  2. **CONFIRM WITH VONAGE:** the custom `code` is sent on every workflow step.
-  3. **CONFIRM WITH VONAGE:** whether RCS steps need JWT auth instead of Basic (the RCS Default Agent guide lists an application with a private key as a prerequisite). If yes, the adapter needs custom JWT signing code.
-  4. **CONFIRM WITH VONAGE:** how a blocked request is reported (synchronous `POST` response vs. `blocked` status in the event callback), so the adapter can return `422 provider_blocked`.
-  5. State that successful sign-ins will be reported with `/check`, often several minutes after the send.
+  1. Ask for custom codes and the `fraud_check` override to be enabled on the account.
+  2. State that the account sends BYOT traffic with `fraud_check` off.
+  3. State that successful sign-ins will be reported with `/check`, often several minutes after the send.
 
 ## Close the loop: report successful sign-ins to Verify
 
-Rationale: Vonage says to always check the code after sending so it can count successful verifications and protect against fraud. Entra doesn't notify the provider, but Entra sign-in logs record the method (`"SMS"` / `"Voice"` in raw `SignInLogs` JSON; displayed as `"Text message"` / `"Voice"` in the portal) and whether the step succeeded. Microsoft documents no join key between a BYOT send and a sign-in log entry, so match on the user's phone number.
+Rationale: Vonage says to always check the code after sending so it can count successful verifications and protect against fraud. Entra doesn't notify the provider, but Entra sign-in logs record the method per step and whether it succeeded. Microsoft's docs use both `"Text message"` (CYOT troubleshooting) and `"SMS"` (Graph `authenticationDetail`) for text codes; match both. Microsoft documents no join key between a BYOT send and a sign-in log entry, so match on the user's phone number.
 
 1. **Store each send** (change to the sample's `SendOtp` runtime): after Vonage `202`, store `request_id` + code keyed by a keyed hash (e.g., HMAC) of the phone number. Verify allows one active request per number, so the hash identifies one request. Encrypt (Key Vault key); expire after ~30 minutes (e.g., Cosmos DB serverless TTL).
 2. **Stream logs:** Entra diagnostic settings → `SignInLogs` → Event Hub (requires Security Administrator; check licensing).
-3. **Filter:** Event Hub–triggered Function; keep sign-ins where `authenticationDetails[].authenticationMethod` is `"SMS"` or `"Voice"` (raw `SignInLogs` JSON uses `"SMS"`, not the portal UI label `"Text message"`) and succeeded after the stored send time. Ignore `"Previously satisfied"` (doesn't prove a new send). A successful step doesn't mean the whole sign-in succeeded; that's fine, the step is what Verify needs.
+3. **Filter:** Event Hub–triggered Function; keep sign-ins where `authenticationDetails[].authenticationMethod` is `"Text message"`, `"SMS"`, or `"Voice"` and succeeded after the stored send time. Verify the labels with a test sign-in before relying on the filter. Ignore `"Previously satisfied"` (doesn't prove a new send). A successful step doesn't mean the whole sign-in succeeded; that's fine, the step is what Verify needs.
 4. **Match:** read the user's phone methods via Graph (`UserAuthMethod-Phone.Read.All`), hash each, find the stored entry.
-5. **Check:** `POST https://api.nexmo.com/v2/verify/{request_id}` with `{"code": "<stored code>"}`. `200` = counted. `404` = request expired or already finished; drop, don't retry. Max 3 check attempts per request; only ever send the stored correct code.
+5. **Check:** `POST https://api.nexmo.com/v2/verify/{request_id}` (JWT auth) with `{"code": "<stored code>"}`. `200` = counted. `404` = request expired or already finished; drop, don't retry. Max 3 check attempts per request; only ever send the stored correct code.
 6. **Delete** the stored entry regardless of result.
 
 Timing: Microsoft publishes no SLA for sign-in log delivery (minutes is typical; long tail exists). A check counts only while the request is open, so `channel_timeout: 900` is also the feedback window. Late events become `404`s and the request shows as expired in Verify. Best-effort by design.
@@ -213,13 +215,12 @@ Data handling: never log codes; process sign-in events (user IDs, IPs) transient
 
 Setup:
 
-1. Vonage dashboard: create an application, enable the **Network Registry** capability; save the Application ID and private key.
+1. Enable the **Network Registry** capability on the Vonage application already used for Verify.
 2. Build in the Network Registry **Playground** (live data only for allowlisted test numbers).
 3. Apply for **Production** in parallel; SIM swap requires mobile operator approval via the Network Registry. Longest lead time.
-4. Store Application ID and private key in Key Vault (separate from Verify's API key/secret; Identity Insights uses JWT auth).
-5. Mint a short-lived JWT in the Function with the private key; cache and reuse until near expiry.
-6. Regional endpoint: `https://api-us.vonage.com/identity-insights/v1/requests` (US) or `https://api-eu.vonage.com/identity-insights/v1/requests` (EU).
-7. Call before `POST /v2/verify`:
+4. Auth: same JWT as Verify (same Application ID and private key from Key Vault).
+5. Regional endpoint: `https://api-us.vonage.com/identity-insights/v1/requests` (US) or `https://api-eu.vonage.com/identity-insights/v1/requests` (EU).
+6. Call before `POST /v2/verify`:
 
 ```http
 POST https://api-us.vonage.com/identity-insights/v1/requests
@@ -282,6 +283,7 @@ Decision table:
 - External ID MFA: https://learn.microsoft.com/en-us/entra/external-id/customers/concept-multifactor-authentication-customers
 - B2C OTP technical profile: https://learn.microsoft.com/en-us/azure/active-directory-b2c/one-time-password-technical-profile
 - Vonage Verify v2 API: https://developer.vonage.com/en/api/verify.v2
+- Vonage Verify authentication (Basic vs JWT): https://developer.vonage.com/en/verify/concepts/authentication
 - Vonage Verify workflow guide: https://developer.vonage.com/en/verify/concepts/workflow
 - Vonage Verify RCS Default Agent: https://developer.vonage.com/en/verify/guides/verify-rcs-default-agent
 - Vonage Verify anti-fraud guide: https://developer.vonage.com/en/verify/guides/v2-anti-fraud
@@ -298,4 +300,6 @@ Decision table:
 - Entra log latency: https://learn.microsoft.com/en-us/entra/identity/monitoring-health/reference-log-latency
 - Entra diagnostic settings: https://learn.microsoft.com/en-us/entra/identity/monitoring-health/concept-diagnostic-settings-logs-options
 
-*Personal project. Public sources. Views are my own. The author works at Vonage; nothing here is an official Vonage position.*
+*Harrison Greanias · Loungeless.*
+
+*Disclosure: I work at Vonage. These thoughts are my own, and I'm not representing Vonage.*

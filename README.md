@@ -1,20 +1,26 @@
-# Entra ID BYOT with Vonage Verify v2 (AI Guide)
+# Entra ID BYOT with Vonage Verify v2: AI-ready guide
 
-Fact-only Markdown guide for Entra ID BYOT with Microsoft's Azure Function sample and Vonage Verify v2 — Entra retires its own SMS/voice MFA on Feb 1, 2027.
+Microsoft stops delivering Entra ID SMS and voice MFA codes on Feb 1, 2027 (Jul 1, 2027 for Global Admins and external users). This repo holds a fact-only Markdown guide to the Bring Your Own Telephony (BYOT) path, using Microsoft's Azure Function sample and Vonage Verify v2.
 
 ## Files
 
-- `entra-byot-vonage-ai-guide.md` — structured, fact-only spec built to drop straight into an AI coding assistant.
+- [`entra-byot-vonage-ai-guide.md`](entra-byot-vonage-ai-guide.md): the structured, fact-only guide. Built to hand straight to an AI coding assistant.
 
-## Companion Articles (Loungeless)
+## Using it with an AI assistant
 
-- **Part 1 (Overview):** *Microsoft Is Hanging Up on Your MFA Texts* — publishing shortly on Substack
-- **Part 2 (Build Guide):** *Building Entra ID BYOT with Vonage Verify v2* — publishing next week on Substack
+Attach the guide, or give your assistant its raw URL, before you ask it to plan, build, or review an Azure Function adapter. It tells the assistant which Microsoft setup you have first, because workforce tenants and consumer apps follow different rules.
 
-## Using with an AI Assistant
+## Companion articles
 
-Attach `entra-byot-vonage-ai-guide.md` (or open its raw GitHub view) before generating or reviewing your Azure Function adapter.
+Written up on [Loungeless](https://loungeless.substack.com):
 
-Checked Nov 20, 2026 against Microsoft Learn, `Azure-Samples/ExternalPhoneProvider-AzureFunction-Sample` (`51d5ac9`), and Vonage public docs.
+- **Part 1, the overview:** *Microsoft Is Hanging Up on Your MFA Texts* (publishing soon)
+- **Part 2, the build guide:** *Building Entra ID BYOT with Vonage Verify v2* (publishing the week after)
 
-*Personal project. Public sources. Views are my own. I work at Vonage; nothing here is an official Vonage position.*
+Checked Nov 23, 2026 against Microsoft Learn, `Azure-Samples/ExternalPhoneProvider-AzureFunction-Sample` (commit `51d5ac9`), and Vonage's public docs. Dates, APIs, and limits change, so confirm anything critical against the sources listed in the guide.
+
+---
+
+*Harrison Greanias · Loungeless. Lounge less, do more.*
+
+*Disclosure: I work at Vonage. These thoughts are my own, and I'm not representing Vonage.*
