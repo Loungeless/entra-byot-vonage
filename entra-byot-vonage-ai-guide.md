@@ -1,6 +1,6 @@
 ---
 title: "Entra ID SMS/voice MFA retires: BYOT with Vonage Verify v2 (AI guide)"
-author: Harrison Greanias (works at Vonage; not an official Vonage position)
+author: Harrison Greanias
 updated: 2026-11-20
 companion_articles:
   part_1: "Microsoft Is Hanging Up on Your MFA Texts" — https://loungeless.substack.com (publishing shortly)
@@ -297,3 +297,5 @@ Decision table:
 - Vonage Verify webhooks (request statuses): https://developer.vonage.com/verify/concepts/webhooks
 - Entra log latency: https://learn.microsoft.com/en-us/entra/identity/monitoring-health/reference-log-latency
 - Entra diagnostic settings: https://learn.microsoft.com/en-us/entra/identity/monitoring-health/concept-diagnostic-settings-logs-options
+
+*Personal project. Public sources. Views are my own. The author works at Vonage; nothing here is an official Vonage position.*
