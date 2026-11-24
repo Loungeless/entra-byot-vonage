@@ -14,8 +14,8 @@ Attach the guide, or give your assistant its raw URL, before you ask it to plan,
 
 Written up on [Loungeless](https://loungeless.substack.com):
 
-- **Part 1, the overview:** *Microsoft Is Hanging Up on Your MFA Texts* (publishing soon)
-- **Part 2, the build guide:** *Building Entra ID BYOT with Vonage Verify v2* (publishing the week after)
+- **Part 1, the overview:** [*Microsoft Is Hanging Up on Your MFA Texts*](https://loungeless.substack.com/p/microsoft-is-hanging-up-on-your-mfa)
+- **Part 2, the build guide:** *Building Entra ID BYOT with Vonage Verify v2* (publishing next week)
 
 Checked Nov 23, 2026 against Microsoft Learn, `Azure-Samples/ExternalPhoneProvider-AzureFunction-Sample` (commit `51d5ac9`), and Vonage's public docs. Dates, APIs, and limits change, so confirm anything critical against the sources listed in the guide.
 

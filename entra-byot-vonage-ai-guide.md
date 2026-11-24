@@ -3,8 +3,8 @@ title: "Entra ID SMS/voice MFA retires: BYOT with Vonage Verify v2 (AI guide)"
 author: Harrison Greanias (Loungeless)
 updated: 2026-11-23
 companion_articles:
-  part_1: "Microsoft Is Hanging Up on Your MFA Texts" — https://loungeless.substack.com (publishing shortly)
-  part_2: "Building Entra ID BYOT with Vonage Verify v2" — https://loungeless.substack.com (publishing shortly)
+  part_1: "Microsoft Is Hanging Up on Your MFA Texts" — https://loungeless.substack.com/p/microsoft-is-hanging-up-on-your-mfa
+  part_2: "Building Entra ID BYOT with Vonage Verify v2" — https://loungeless.substack.com (publishing Dec 1, 2026)
 checked_against: Microsoft Learn, Azure-Samples/ExternalPhoneProvider-AzureFunction-Sample (commit 51d5ac9), Vonage public developer docs
 ---
 
